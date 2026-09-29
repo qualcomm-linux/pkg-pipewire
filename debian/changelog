@@ -1,3 +1,9 @@
+pipewire (1.6.9-2qli1~) UNRELEASED; urgency=medium
+
+  * Unreleased changes
+
+ -- Agathe Porte <agathe.porte@oss.qualcomm.com>  Tue, 29 Sep 2026 11:53:10 +0200
+
 pipewire (1.6.9-2) unstable; urgency=medium
 
   [ Agathe Porte ]
