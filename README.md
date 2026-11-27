@@ -1,188 +1,217 @@
-# pkg-template
+# PipeWire
 
-This repository serves as a template for creating Debian package repositories within the Qualcomm Linux ecosystem. It provides the essential structure, GitHub workflows, and configuration necessary to integrate with the [qcom-build-utils](https://github.com/qualcomm-linux/qcom-build-utils) repository, enabling standardized Debian package building processes.
+[PipeWire](https://pipewire.org) is a server and user space API to
+deal with multimedia pipelines. This includes:
 
-## Quick Start
+  - Making available sources of video (such as from a capture devices or
+    application provided streams) and multiplexing this with
+    clients.
+  - Accessing sources of video for consumption.
+  - Generating graphs for audio and video processing.
 
-To create a new Debian package repository using this template:
+Nodes in the graph can be implemented as separate processes,
+communicating with sockets and exchanging multimedia content using fd
+passing.
 
-1. Navigate to this repository's GitHub page and click the **"Use this template"** button located in the top right corner.
-2. Select **qualcomm-linux** as the organization in the drop-down menu. This is necessary.
-3. Name the new repository with the prefix `pkg-` to adhere to the naming convention for package repositories. This is necessary.
-5. Ensure the **"Include all branches"** option is enabled. Otherwise by default, only the default branch "qli-ci" is cloned.
-6. Set the `is-pkg-repo` property to `true`.
+## Building and installation
 
-## Branches
+The preferred way to install PipeWire is to install it with your
+distribution package system. This ensures PipeWire is integrated
+into the rest of your system for the best experience.
 
-- **qli-ci**: The primary branch containing workflow logic in the `.github/` folder, along with boilerplate documentation files such as license, contribution guidelines, and this README.
-- **qcom/debian/latest**: An orphan starter branch shipping a `debian/` directory layout. It is **not** meant to be used as-is for a real package; see [Setting up the packaging branch](#setting-up-the-packaging-branch) for how to construct your own `qcom/debian/latest`. Naming conventions are documented [here](https://qualcomm-confluence.atlassian.net/wiki/spaces/LinuxCoreOS/pages/2879858691/pkg-+repository+specification).
+If you want to build and install PipeWire yourself, refer to
+[install](INSTALL.md) for instructions.
 
-## Setting up the packaging branch
+## Usage
 
-The `qcom/debian/latest` branch shipped with this template is an orphan
-starter — its history is unrelated to any real upstream codebase. When
-you fork this template for a real package, construct your own
-`qcom/debian/latest` branch as follows:
+The most important purpose of PipeWire is to run your favorite apps.
 
-1. Clone the upstream source repository.
-2. Branch off its development tip.
-3. Copy the `debian/` directory from this template's `qcom/debian/latest`
-   branch onto your new branch as one or more commits, and customize
-   the contents (`control`, `changelog`, `copyright`, etc.) for your
-   package.
-4. Push the result as `qcom/debian/latest` in your `pkg-*` repository.
+Some applications use the native PipeWire API, such as most compositors
+(gnome-shell, wayland, ...) to implement screen sharing. These apps will
+just work automatically.
 
-This ensures your packaging branch's history is rooted in the upstream
-code being packaged rather than being an orphan disconnected from
-upstream. This template cannot enforce that construction directly since
-it does not have access to your upstream repository.
+Most audio applications can use either ALSA, JACK or PulseAudio as a
+backend. PipeWire provides support for all 3 backends. Depending on how
+your distribution has configured things this should just work automatically
+or with the provided scripts shown below.
 
-## Validating your packaging locally
+PipeWire can use environment variables to control the behaviour of
+applications:
 
-Before pushing to the packaging branch, build the package and run
-[Lintian](https://lintian.debian.org/) against the resulting `.changes`
-to catch policy violations and common packaging mistakes before CI
-does:
+* `PIPEWIRE_DEBUG=<level>`         to increase the debug level (or use one of
+                                   `XEWIDT` for none, error, warnings, info,
+                                   debug, or trace, respectively).
+* `PIPEWIRE_LOG=<filename>`        to redirect log to filename
+* `PIPEWIRE_LOG_SYSTEMD=false`     to disable logging to systemd journal
+* `PIPEWIRE_LATENCY=<num/denom>`   to configure latency as a fraction. 10/1000
+                                   configures a 10ms latency. Usually this is
+				   expressed as a fraction of the samplerate,
+				   like 256/48000, which uses 256 samples at a
+				   samplerate of 48KHz for a latency of 5.33ms.
+				   This function does not attempt to configure
+				   the samplerate.
+* `PIPEWIRE_RATE=<num/denom>`      to configure a rate for the graph.
+* `PIPEWIRE_QUANTUM=<num/denom>`   to configure latency as a fraction and a
+                   samplerate. This function will force the graph samplerate to
+                   `denom` and force the specified `num` as the buffer size.
+* `PIPEWIRE_NODE=<id>`             to request a link to the specified node. The
+                    id can be a node.name or object.serial of the target node.
 
-```sh
-gbp buildpackage   # or: dpkg-buildpackage -us -uc -b
-lintian -EviL +pedantic ../*.changes
+### Using tools
+
+`pw-cat` can be used to play and record audio and midi. Use `pw-cat -h` to get
+some more help. There are some aliases like `pw-play` and `pw-record` to make
+things easier:
+
+```
+$ pw-play /home/wim/data/01.\ Firepower.wav
 ```
 
-The flags display experimental tags, info-level extended descriptions,
-and the strictest "pedantic" level. Address findings (or add justified
-entries to a `lintian-overrides` file) before opening a PR.
+### Running JACK applications
 
-## Workflows
+Depending on how the system was configured, you can either run PipeWire and
+JACK side-by-side or have PipeWire take over the functionality of JACK
+completely.
 
-The `qli-ci` branch includes the following workflows in the `.github/workflows/` directory:
+In dual mode, JACK apps will by default use the JACK server. To direct a JACK
+app to PipeWire, you can use the `pw-jack` script like this:
 
-- **qcom-preflight-checks.yml**: A sanity check workflow inherited from the base Qualcomm template.
-- **stale-issues.yml**: A workflow for managing stale issues, also inherited from the base template.
-- **build-debian-package.yml**: Builds the Debian package for this repository. This workflow serves as an entry point that invokes reusable workflows from the centralized qcom-build-utils repository.
-- **pr-pre-post-merge.yml**: This workflow executes during a PR, and once the PR is merged. 
-- **promote-upstream.yml**: Promotes the package's tracking version to a new upstream release. This workflow also triggers reusable workflows in qcom-build-utils.
-- **release**: Used to trigger a release of a package
+```
+$ pw-jack <appname>
+```
 
-## IMPORTANT: Workflow to paste in the upstream source repo
+If you replaced JACK with PipeWire completely, `pw-jack` does not have any
+effect and can be omitted.
 
-The .github/TO_PASTE_IN_UPSTREAM_REPO/pkg-build-pr-check.yml needs to be transfered over to the source repo.
-Once this is done, delete the TO_PASTE_IN_UPSTREAM_REPO as it is not necessary to keep in this repository once the workflow has been transfered.
+JACK applications will automatically use the buffer-size chosen by the
+server. You can force a maximum buffer size (latency) by setting the
+`PIPEWIRE_LATENCY` environment variable like so:
 
-**This workflow needs to be put in the default branch of the source repo (likely branch main unless you modify it), otherwise it wont work** This is per new December Github update
+```
+PIPEWIRE_LATENCY=128/48000 jack_simple_client
+```
+Requests the `jack_simple_client` to run with a buffer of 128 or
+less samples.
 
-## Repository Configuration
 
-### Runners
+### Running PulseAudio applications
 
-All the workflows are running on the github arm64 runners. Some sections need to run on the AWS runners where access to S3 buckets and artifactory. You will need to ask **Steve Manley** to enable the repo for the AWS runners.
+PipeWire can run a PulseAudio compatible replacement server. You can't
+use both servers at the same time. Usually your package manager will
+make the server conflict so that you can only install one or the
+other.
 
-### GHCR Registry Access
+PulseAudio applications still use the regular PulseAudio client
+libraries and you don't need to do anything else than change the
+server implementation.
 
-The build workflows rely on the `pkg-builder` container image hosted in the qualcomm-linux GitHub Container Registry (GHCR). For your newly created repository to be able to pull this image, it must be explicitly granted `packages:read` access.
+A successful swap of the server can be verified by checking the
+output of
 
-To request this, please contact **Mark Matyas** (mmatyas@qti.qualcomm.com) and ask him to add your repository to the list of repositories authorized to access the `pkg-builder` package. The relevant settings page is:
+```
+pactl info
+```
+It should include the string:
+```
+...
+Server Name: PulseAudio (on PipeWire 0.3.x)
+...
+```
 
-https://github.com/orgs/qualcomm-linux/packages/container/pkg-builder/settings
+You can use pavucontrol to change profiles and ports, change volumes
+or redirect streams, just like with PulseAudio.
 
-### Repository Variables
 
-Set the following repository variables to establish links between upstream and package repositories:
+### Running ALSA applications
 
-- **UPSTREAM_REPO_GITHUB_NAME**: In this package repo, this is the GitHub name of the upstream repository (e.g. in the case of the pkg-example, `qualcomm-linux/qcom-example-package-source`).
-- **PKG_REPO_GITHUB_NAME**: This variable is set in the upstream project repo; the GitHub name of the package repository (e.g., `qualcomm-linux/pkg-example`).
+If the PipeWire alsa module is installed, it can be seen with
 
-### Branch Protection Rules
+```
+$ aplay -L
+```
 
-Configure branch protection for `debian/**` and `qcom/**`:
+ALSA applications can then use the `pipewire:` device to use PipeWire
+as the audio system.
 
-- Restrict deletions.
-- Require pull requests before merging.
-- Block force pushes.
-- Add `build / build-debian-package` as a required status check.
-- Add the `qcom-service-bot` account with admin rights
-- Add the Admin role to the branche protection ruleset so that the qcom-service-bot can push directly to those branches
+### Running GStreamer applications
 
-### Additional Settings
+PipeWire includes 2 GStreamer elements called `pipewiresrc` and
+`pipewiresink`. They can be used in pipelines such as this:
 
-- Enable **"Automatically delete head branches"** for pull requests.
-- Allow only merge commits for pull request merges.
-- Enable **release immutability** in the upstream repository.
-- Add the Qualcomm Github Service bot as a user with the **Write** role:
-  - While the repo is private, add the Github user **qcom-service-bot** with the **Write** role.
-  - If/when the repo is made public, there will be a big change in how the contributors are handled. 
-    After that, the contributors list is cleared, and one need to re-enroll as a contributor. The way
-    to do that is completely different from when the repo was private. When it was private, the creator
-    of the repo had the possibility to go into the repo settings and add whoever. When made public, the
-    repo's maintainer/contributor list is managed by a Qualcomm internal mailing list. If the repo is
-    named pkg-foo, then the Maintainer list will be named Maintainers.pkg-foo, and one need to request
-    access via https://lists.qualcomm.com, find the list and ask access. For the bot, you must add it via
-    its qualcomm username **githubservice**@qti.qualcomm.com, as opposed to its Github handle above.
+```
+$ gst-launch-1.0 pipewiresrc ! videoconvert ! autovideosink
+```
 
-## Setting the `is-pkg-repo` property
+Or to play a beeping sound:
 
-We automate management of `pkg-*` repositories by searching for the `is-pkg-repo` property; please set is to `true` when creation, or when you're ready.
+```
+$ gst-launch-1.0 audiotestsrc ! pipewiresink
+```
 
-## Making your pkg-repo to public
+PipeWire provides a device monitor as well so that
 
-When your pkg-repo is mature enough, it will need to be made public.
+```
+$ gst-device-monitor-1.0
+```
 
-### How to make the repo go public
- 
-The first step in making a repo go public is the Tradesmark/legal process.
-Your POC (Person of Contact) in this step is [Stephanie Arce](sarce@qti.qualcomm.com)
+shows the PipeWire devices and applications like cheese will
+automatically use the PipeWire video source when possible.
 
-You need to [complete an OSS Contribution Request](https://jira-dc4.qualcomm.com/jira/secure/CreateIssue.jspa?pid=46536&issuetype=13440)
+### Inspecting the PipeWire state
 
-Here is a bit of help on the mandatory fields when filling the form:
+To inspect and manipulate the PipeWire graph via GUI, you can use [Helvum](https://gitlab.freedesktop.org/ryuukyu/helvum).
 
-- Components : Select "Other"
-- Summary : Give a short description such as "Debian packaging repository for X"
-- Project name: This would be the repo name, such as "pkg-example"
-- Destination URL: Give the Github URL, such as "www.github.com/qualcomm-linux/pkg-example"
-- Description: Give a description about the repo being a debian packaging repo, which packages another upstream project X
-- Project Licenses: Give the license of the repo. Unless something changes, it should remain  BSD-3-Clause License.
-- Contribution plan: 
-  - Project Description: You can give the same project description as above
-  - What are ourr general plan with the Project: Talk about it being the debian packaging for project X
-  - Do we have any Leadership positions in the project: Give yourself/manager
-  - Is Qualcomm expanding the project by contributing technology implementations: Likely a simple no
+Alternatively, you can use use one of the excellent JACK tools, such as `Carla`,
+`catia`, `qjackctl`, ...
+However, you will not be able to see all features like the video
+ports.
 
-More information can be found [here](https://github.qualcomm.com/pages/osdo/handbook/qcom-github/docs/new-project-checklist/)
+`pw-mon` dumps and monitors the state of the PipeWire daemon.
 
-Once submitted, it will generally take a couple of days to a week to get approval from Legal.
+`pw-dot` can dump a graph of the pipeline, check out the help for
+how to do this.
 
-The, once you receive an email about the acceptance of the Legal team, you will have to submit a ticket about enabling the repo.
+`pw-top` monitors the real-time status of the graph. This is handy to
+find out what clients are running and how much DSP resources they
+use.
 
-In this process, your POC will be [Mark Matyas](mmatyas@qti.qualcomm.com)
+`pw-dump` dumps the state of the PipeWire daemon in JSON format. This
+can be used to find out the properties and parameters of the objects
+in the PipeWire daemon.
 
-Complete the form : https://ossops.qualcomm.com/github/enable-repo/
+There is a more complicated tool to inspect the state of the server
+with `pw-cli`. This tool can be used interactively or it can execute
+single commands like this to get the server information:
 
-### Note about Github Repo roles after going public
+```
+$ pw-cli info 0
+```
 
-When creating a repo withing the organization, it always starts as a private repo and one need to go through an approval
-process in order to have the repo go public. 
+## Documentation
 
-Upon creation of the repo, the person who created it gets to be assigned the maintainer responsability and has full control
-over it in the settings. When the repo goes public, this changes. The repo creator stops having all the powers over the repo,
-and in order to join the repo as a contributor, one needs to enroll via a github mailing list instead of directly through the repo
-settings. 
+Find tutorials and design documentation [here](doc/index.dox).
 
-This is the link to go to in order to ask to be a contributor or a maintainer of a Qualcomm publib github repo : 
-https://lists.qualcomm.com/ListManager
+The (incomplete) autogenerated API docs are [here](https://docs.pipewire.org).
 
-In the searchbox, one need to find the contributor/maintainer list corresponding to the repo. 
-If the repo is named "pkg-example", then the list(s) to search for are : 
+The Wiki can be found [here](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/home)
 
-- contributors.pkg-example
-- maintainers.pkg-example
+## Contributing
 
-It takes about an hour between the list acceptance and the new role to reflect in Github
+PipeWire is Free Software and is developed in the open. It is mostly
+licensed under the [MIT license](COPYING). Check [LICENSE](LICENSE) for
+more details about the exceptions.
 
-## Getting in Contact
+Contributors are encouraged to submit merge requests or file bugs on
+[gitlab](https://gitlab.freedesktop.org/pipewire).
 
-For support or inquiries, contact sbeaudoi@qti.qualcomm.com.
+Join us on IRC at #pipewire on [OFTC](https://www.oftc.net/).
 
-## License
+We adhere to the Contributor Covenant for our [code of conduct](CODE_OF_CONDUCT.md).
 
-pkg-template is licensed under the [BSD-3-Clause License](https://spdx.org/licenses/BSD-3-Clause.html). See [LICENSE.txt](LICENSE.txt) for the full license text.
+[Donate using Liberapay](https://liberapay.com/PipeWire/donate).
+
+## Getting help
+
+You can ask for help on the IRC channel (see above).  You can also ask
+questions by [raising](https://gitlab.freedesktop.org/pipewire/pipewire/-/issues/new)
+a gitlab issue.
