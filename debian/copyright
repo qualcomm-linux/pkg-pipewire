@@ -109,6 +109,7 @@ License: Expat
 Files: src/modules/module-protocol-pulse/modules/module-compress-offload-forwarder.c
        src/modules/module-protocol-pulse/modules/module-compress-offload-forwarder.h
        src/modules/module-protocol-pulse/modules/module-compress-offload-sink.c
+       src/tools/pw-voiceui.c
 Copyright: Qualcomm Technologies, Inc. and/or its subsidiaries.
 License: BSD-3-Clause-Clear
 
