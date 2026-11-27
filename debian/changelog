@@ -1,8 +1,12 @@
-pipewire (1.4.9-2qli1~) UNRELEASED; urgency=medium
+pipewire (1.6.9-0qli+staging1~) UNRELEASED; urgency=medium
 
+  [ Agathe Porte ]
   * Unreleased changes
 
- -- Agathe Porte <agathe.porte@oss.qualcomm.com>  Tue, 29 Sep 2026 11:53:10 +0200
+  [ GitHub Service Bot ]
+  * New upstream release
+
+ -- GitHub Service Bot <githubservice@qti.qualcomm.com>  Fri, 27 Nov 2026 11:06:39 +0000
 
 pipewire (1.6.9-2) unstable; urgency=medium
 
